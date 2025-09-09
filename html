@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Soi cầu chuyên gia — Đọc Tình Huống</title>
+<style>
+:root{
+  --bg:#0b0c0f; --card:#0f1114; --text:#eef2f7; --muted:#9aa4b2;
+  --banker:#e53935; --player:#1e88e5; --tie:#9e9e9e;
+  --good:#00e676; --warn:#ffb74d; --info:#64b5f6;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1100px;margin:12px auto;padding:12px}
+.card{background:var(--card);border-radius:12px;padding:12px;margin-bottom:12px;border:1px solid #121316}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}
+.b{background:var(--banker);color:#fff}
+.p{background:var(--player);color:#fff}
+.t{background:var(--tie);color:#000}
+.small{padding:8px;border-radius:8px;background:#101217;color:var(--muted)}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kv{background:#081018;padding:10px;border-radius:8px;text-align:center}
+.kv .v{font-size:18px;font-weight:800}
+.muted{color:var(--muted);font-size:13px}
+#board{display:grid;grid-template-columns:repeat(30,22px);grid-auto-rows:22px;gap:6px;min-height:22px}
+.dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;position:relative}
+.dot.b{background:var(--banker)}
+.dot.p{background:var(--player)}
+.dot.empty{background:transparent;border-radius:4px;border:1px solid #111}
+.tie-mark{position:absolute;right:0;bottom:0;font-size:10px;color:#fff}
+.section-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.panel-grid{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.analysis-list{background:#071018;padding:10px;border-radius:8px;min-height:100px}
+.pre{white-space:pre-wrap;color:var(--muted);font-size:13px}
+.decision{font-weight:900;font-size:18px;padding:10px;border-radius:8px}
+.decision.good{background:rgba(0,230,118,0.06);color:var(--good)}
+.decision.warn{background:rgba(255,183,77,0.06);color:var(--warn)}
+.tag{display:inline-block;padding:6px 8px;border-radius:8px;background:#0b1722;color:var(--muted);margin-right:6px;font-size:12px}
+@media (max-width:760px){ .panel-grid{grid-template-columns:1fr} .kpi{grid-template-columns:repeat(2,1fr)} #board{grid-template-columns:repeat(20,18px)} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card row" style="justify-content:space-between">
+    <div style="display:flex;gap:12px;align-items:center">
+      <div style="font-size:20px;font-weight:900">🧠 Soi cầu — Đọc Tình Huống (Chuyên gia)</div>
+      <div class="small" id="count">0 ván</div>
+      <div class="small" id="streak">Chuỗi: -</div>
+    </div>
+    <div class="muted">Chạy offline — dữ liệu lưu trên trình duyệt</div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-bottom:8px">
+      <button class="b" id="bankerBtn">Banker (B)</button>
+      <button class="p" id="playerBtn">Player (P)</button>
+      <button class="t" id="tieBtn">Tie (T)</button>
+      <button class="small" id="undoBtn">Hoàn tác</button>
+      <button class="small" id="resetBtn">Xoá hết</button>
+      <button class="small" id="exportBtn">Xuất JSON</button>
+      <button class="small" id="pasteJsonBtn">Dán/Import</button>
+    </div>
+    <div class="muted">Nhấn nút để thêm ván — nhập chuỗi/JSON hỗ trợ ở dưới.</div>
+  </div>
+
+  <div class="card panel-grid">
+    <div>
+      <div class="section-title">PHÂN TÍCH CHUYÊN GIA (Chi tiết)</div>
+      <div class="analysis-list" id="analysis">
+        <div class="muted">Chưa có dữ liệu — thêm vài ván để thấy kết quả.</div>
+      </div>
+
+      <div style="margin-top:10px" class="section-title">Lý do chi tiết</div>
+      <pre id="reasons" class="pre"></pre>
+    </div>
+
+    <div>
+      <div class="section-title">Kết luận chuyên gia</div>
+      <div id="decision" class="decision">Chưa có dữ liệu.</div>
+      <div id="decisionDetail" class="muted" style="margin-top:8px"></div>
+
+      <div style="margin-top:12px" class="section-title">Xác suất & chỉ số</div>
+      <div class="kpi">
+        <div class="kv"><div class="v" id="p_b">-</div><div class="k">P(B)</div></div>
+        <div class="kv"><div class="v" id="p_p">-</div><div class="k">P(P)</div></div>
+        <div class="kv"><div class="v" id="p_t">-</div><div class="k">P(T)</div></div>
+        <div class="kv"><div class="v" id="breakProb">-</div><div class="k">P(gãy)</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Bảng cầu (Big Road)</div>
+    <div id="board"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">KPI & Lịch sử</div>
+    <div class="kpi" style="margin-bottom:8px">
+      <div class="kv"><div class="v" id="bRate">-</div><div class="k">Tỉ lệ Banker</div></div>
+      <div class="kv"><div class="v" id="pRate">-</div><div class="k">Tỉ lệ Player</div></div>
+      <div class="kv"><div class="v" id="tieCount">-</div><div class="k">Tie</div></div>
+      <div class="kv"><div class="v" id="vol">-</div><div class="k">Độ biến động</div></div>
+    </div>
+
+    <div id="history">Chưa có dữ liệu.</div>
+    <div style="margin-top:8px">
+      <textarea id="io" placeholder='Dán JSON (["B","P","T"]) hoặc "B P B" hoặc "BPBPT" rồi bấm Import'></textarea>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* Soi cầu — Expert reader
+   - Detailed pattern detection
+   - Markov1 + hazard (run-length survival) blended
+   - Expert-style narrative: "Đọc tình huống", reasons, confidence
+   - Single-file, offline (localStorage)
+*/
+
+// ---- storage + state ----
+const KEY = 'soicau_expert_v1';
+const ROWS = 12, COLS = 30;
+let state = { seq: load() };
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return [];
+    const parsed = JSON.parse(raw);
+    if(Array.isArray(parsed)) return parsed.filter(x=>['B','P','T'].includes(x));
+  }catch(e){}
+  return [];
+}
+function persist(){ localStorage.setItem(KEY, JSON.stringify(state.seq)); }
+
+// ---- actions ----
+function add(x){ state.seq.push(x); persist(); render(); }
+function undo(){ if(state.seq.length===0) return; state.seq.pop(); persist(); render(); }
+function resetAll(){ if(!confirm('Xoá toàn bộ lịch sử?')) return; state.seq=[]; persist(); render(); }
+function exportData(){ document.getElementById('io').value = JSON.stringify(state.seq); alert('JSON xuất sang ô dưới.'); }
+function importData(){
+  const raw = document.getElementById('io').value.trim();
+  if(!raw) return alert('Dán dữ liệu vào ô rồi bấm Import.');
+  try{
+    const j = JSON.parse(raw);
+    if(Array.isArray(j)){ state.seq = j.filter(x=>['B','P','T'].includes(x)); persist(); render(); return alert('Import JSON thành công'); }
+  }catch(e){}
+  const spaced = raw.split(/\s+/).map(s=>s.trim().toUpperCase()).filter(Boolean);
+  if(spaced.every(s=>['B','P','T'].includes(s)) && spaced.length>0){ state.seq = spaced; persist(); render(); return alert('Import spaced thành công'); }
+  const compact = raw.toUpperCase().split('').filter(ch=>['B','P','T'].includes(ch));
+  if(compact.length>0){ state.seq = compact; persist(); render(); return alert('Import compact thành công'); }
+  alert('Dữ liệu không hợp lệ.');
+}
+
+// ---- utilities ----
+function coreSeq(seq){ return seq.filter(x=>x!=='T'); }
+function runLengths(core){
+  if(core.length===0) return [];
+  const runs=[]; let cur=core[0], len=1;
+  for(let i=1;i<core.length;i++){ if(core[i]===cur) len++; else { runs.push({side:cur,len}); cur=core[i]; len=1; } }
+  runs.push({side:cur,len}); return runs;
+}
+function streakInfo(core){
+  let len=0, side=null;
+  for(let i=core.length-1;i>=0;i--){
+    const x = core[i];
+    if(!side){ side = x; len = 1; }
+    else if(x===side) len++; else break;
+  }
+  return {len,side};
+}
+function kpis(seq){
+  const n=seq.length; const b=seq.filter(x=>x==='B').length; const p=seq.filter(x=>x==='P').length; const t=seq.filter(x=>x==='T').length;
+  const eff = Math.max(1, n - t); const bRate = Math.round(100 * b / eff); const pRate = Math.round(100 * p / eff);
+  let vol=0, last=null;
+  for(const x of seq){ if(x==='T') continue; if(last && x!==last) vol++; if(x!=='T') last = x; }
+  let streak=0, sLast=null;
+  for(let i=seq.length-1;i>=0;i--){ const x=seq[i]; if(x==='T') continue; if(!sLast){ sLast=x; streak=1; } else if(x===sLast) streak++; else break; }
+  return {n,b,p,t,bRate,pRate,vol,streak,sLast};
+}
+
+// ---- Markov 1-step ----
+function markov1(seq){
+  const nexts={'P':{'P':0,'B':0,'T':0}, 'B':{'P':0,'B':0,'T':0}, 'T':{'P':0,'B':0,'T':0}};
+  const counts={'P':0,'B':0,'T':0};
+  for(let i=0;i+1<seq.length;i++){ const a=seq[i], b=seq[i+1]; if(nexts[a]){ nexts[a][b]++; counts[a]++; } }
+  const prob={}; ['P','B','T'].forEach(a=>{ prob[a]={}; ['P','B','T'].forEach(b=> prob[a][b] = counts[a] ? nexts[a][b]/counts[a] : 1/3); });
+  return {prob,counts};
+}
+
+// ---- Hazard (run-length survival) ----
+function hazardForLast(core){
+  const runs = runLengths(core);
+  if(runs.length===0) return {hazard:null, sample:0, survival:null};
+  const last = runs[runs.length-1]; const side = last.side; const L = last.len;
+  const lengths = runs.filter(r=>r.side===side).map(r=>r.len);
+  let sL=0, sL1=0;
+  for(const v of lengths){ if(v>=L) sL++; if(v>=L+1) sL1++; }
+  const alpha = 1;
+  if(sL===0) return {hazard:null,sample:0,survival:null};
+  const survival = (sL1 + alpha) / (sL + alpha*2);
+  const hazard = 1 - survival;
+  return {hazard, sample:sL, survival};
+}
+
+// ---- Pattern detection (expert rules) ----
+function detectPatterns(seq){
+  const core = coreSeq(seq);
+  const win = core.slice(-14).join('');
+  const pats = [];
+  if(core.length===0) return pats;
+  const st = streakInfo(core);
+  // bệt
+  if(st.len>=2) pats.push({name:`Bệt ${st.side} x${st.len}`, weight:Math.min(6, st.len), side:st.side, expert:'chain'});
+  // 2-1
+  if(/BBP$/.test(win)) pats.push({name:'Mẫu 2-1 (BBP)', weight:2, side:'P', expert:'pattern'});
+  if(/PPB$/.test(win)) pats.push({name:'Mẫu 2-1 (PPB)', weight:2, side:'B', expert:'pattern'});
+  // 22 (cầu đôi)
+  if(/BBPP$/.test(win) || /PPBB$/.test(win)) pats.push({name:'Cầu đôi (22)', weight:2, side: core.slice(-1)[0], expert:'pattern'});
+  // 232
+  if(/BBPPBB$/.test(win)) pats.push({name:'232 (BBPPBB)', weight:2, side:'B', expert:'pattern'});
+  if(/PPBBPP$/.test(win)) pats.push({name:'232 (PPBBPP)', weight:2, side:'P', expert:'pattern'});
+  // nhảy
+  if(/(BP){3,}$/.test(win)) pats.push({name:'Cầu nhảy BPBP...', weight:2, side:'B', expert:'alternation'});
+  if(/(PB){3,}$/.test(win)) pats.push({name:'Cầu nhảy PBPB...', weight:2, side:'P', expert:'alternation'});
+  // nghiêng
+  const last10 = core.slice(-10);
+  if(last10.length>=6){ const cnt={B:0,P:0}; last10.forEach(x=>cnt[x]++); if(cnt.B/last10.length>=0.7) pats.push({name:`Nghiêng Banker (${cnt.B}/${last10.length})`, weight:3, side:'B', expert:'lean'}); if(cnt.P/last10.length>=0.7) pats.push({name:`Nghiêng Player (${cnt.P}/${last10.length})`, weight:3, side:'P', expert:'lean'}); }
+  // gãy bệt
+  if(st.len===1 && core.length>=2){ const prev = streakInfo(core.slice(0,-1)); if(prev.len>=5 && prev.side!==st.side) pats.push({name:`Gãy bệt ${prev.side} (${prev.len})`, weight:2, side:st.side, expert:'break'}); }
+  return pats;
+}
+
+// ---- Blend Markov + Hazard + Pattern prior (expert blending) ----
+function blend(seq){
+  const core = coreSeq(seq);
+  const m1 = markov1(seq);
+  const last = seq.length? seq[seq.length-1] : null;
+  const p1 = last ? m1.prob[last] : {'P':1/3,'B':1/3,'T':1/3};
+  const hazard = hazardForLast(core);
+  const pats = detectPatterns(seq);
+  const score = {B:0,P:0};
+  pats.forEach(p=>{ if(p.side) score[p.side]+=p.weight||1; });
+  const totalScore = Math.max(1, score.B + score.P);
+  const prior = {B: (score.B/totalScore)*0.3, P: (score.P/totalScore)*0.3}; // modest prior
+
+  const w_m1 = Math.min(0.8, (m1.counts[last] || 0) / ((m1.counts[last] || 0) + 3));
+  const w_h = hazard.hazard !== null ? Math.min(0.9, hazard.sample / (hazard.sample + 2)) : 0;
+  const w_prior = Math.min(0.5, prior.B + prior.P);
+  let w_res = Math.max(0, 1 - (w_m1 + w_h + w_prior));
+
+  const blended = {'B':0,'P':0,'T':0};
+  blended.B += w_res/3; blended.P += w_res/3; blended.T += w_res/3;
+  blended.B += w_m1 * p1['B']; blended.P += w_m1 * p1['P']; blended.T += w_m1 * p1['T'];
+  if(hazard.hazard !== null && last){
+    const same = last; const survival = hazard.survival;
+    blended[same] += w_h * survival;
+    const rem = w_h * (1 - survival);
+    const denom = (p1['B'] + p1['P'] + p1['T']);
+    blended.B += rem * (p1['B']/denom); blended.P += rem * (p1['P']/denom); blended.T += rem * (p1['T']/denom);
+  }
+  blended.B += w_prior * (prior.B || 0); blended.P += w_prior * (prior.P || 0);
+
+  const s = blended.B + blended.P + blended.T;
+  blended.B /= s; blended.P /= s; blended.T /= s;
+
+  return {blended, p1, hazard, pats, weights:{w_m1,w_h,w_prior,w_res}, m1counts:m1.counts};
+}
+
+// ---- Expert narrative builder ----
+function expertRead(seq){
+  const k = kpis(seq);
+  const core = coreSeq(seq);
+  const runs = runLengths(core);
+  const blendInfo = blend(seq);
+  const blended = blendInfo.blended;
+  const pats = blendInfo.pats;
+  const reasons = [];
+
+  // Top-level statements (like chuyên gia)
+  // 1. Tình trạng chuỗi
+  if(k.n === 0) return {text:'Chưa có dữ liệu để đọc.', details:[], blended, pick:null, conf:0, metrics:blendInfo.weights};
+
+  if(k.streak >= 4){
+    reasons.push(`Chuỗi mạnh: ${k.sLast} đang ${k.streak} ván liên tiếp — khả năng tiếp diễn/đứt đều có thể xảy ra; kiểm tra hazard.`);
+  } else if(k.streak === 3){
+    reasons.push(`Chuỗi vừa: ${k.sLast} x3 — chú ý bệt.`);
+  } else if(k.streak === 2){
+    reasons.push(`Chuỗi ngắn: ${k.sLast} x2 — chưa đủ mạnh.`);
+  } else {
+    reasons.push(`Không có chuỗi kéo dài.`);
+  }
+
+  // 2. Mẫu cầu phát hiện
+  if(pats.length){
+    reasons.push('Mẫu phát hiện: ' + pats.map(p=>p.name + (p.expert?` [${p.expert}]`:'')).join(' • '));
+  } else {
+    reasons.push('Không phát hiện mẫu cầu điển hình trong window gần nhất.');
+  }
+
+  // 3. Hazard / gãy
+  if(blendInfo.hazard.hazard !== null){
+    reasons.push(`Ước lượng hazard: xác suất gãy chuỗi hiện tại ≈ ${Math.round(blendInfo.hazard.hazard*100)}% (dùng ${blendInfo.hazard.sample} run lịch sử).`);
+    if(blendInfo.hazard.hazard > 0.6) reasons.push('Cảnh báo: khả năng gãy cao — nên xem xét đánh ngược hoặc chờ.');
+    else if(blendInfo.hazard.hazard > 0.35) reasons.push('Khả năng gãy trung bình — cân nhắc stake nhỏ.');
+    else reasons.push('Khả năng gãy thấp — chuỗi có xu hướng tiếp diễn theo lịch sử.');
+  } else {
+    reasons.push('Không đủ dữ liệu lịch sử run để ước lượng hazard chính xác.');
+  }
+
+  // 4. Markov signal
+  const last = seq.length ? seq[seq.length-1] : null;
+  const m1 = blendInfo.p1[last] || {'B':0.33,'P':0.33,'T':0.33};
+  reasons.push(`Markov1 (dựa trên ván trước '${last}'): P_next ≈ B:${Math.round(100*m1.B)}% P:${Math.round(100*m1.P)}% T:${Math.round(100*m1.T)}%`);
+
+  // 5. Blended probabilities
+  reasons.push(`Kết hợp (chuyên gia): P_next ≈ B:${Math.round(blended.B*100)}% • P:${Math.round(blended.P*100)}% • T:${Math.round(blended.T*100)}%`);
+
+  // 6. Volatility and context
+  if(k.vol >= Math.max(5, Math.floor(k.n/4))) reasons.push('Thị trường có độ biến động cao (nhiều đảo) — ưu tiên chờ/đánh nhẹ.');
+  if(k.n < 6) reasons.push('Dữ liệu ít — độ tin cậy thấp, ưu tiên quan sát thêm.');
+
+  // 7. Compose pick logic like chuyên gia
+  // Rules applied in order (explainable):
+  // A) Nếu blended cho B/P >= 70% => pick đó (rất mạnh)
+  // B) Nếu hazard cho tiếp diễn (survival) cao và chuỗi >=3 => theo chuỗi
+  // C) Nếu pattern mạnh (weight sum) + blended >=55% => theo pattern
+  // D) Nếu volatile or close probs => CHỜ
+  let pick = null; let conf = 0; let rationale = '';
+  const bProb = blended.B, pProb = blended.P;
+  const top = bProb > pProb ? 'B' : 'P';
+  const topProb = Math.max(bProb, pProb);
+  const patternScore = (function(){ let s=0; pats.forEach(p=>{ if(p.side) s += p.weight||1; }); return s; })();
+
+  if(topProb >= 0.70){
+    pick = top; conf = Math.round(topProb*100); rationale = 'Tín hiệu blended rất mạnh.';
+  } else if(blendInfo.hazard.survival !== null && k.streak >= 3 && blendInfo.hazard.survival >= 0.65){
+    pick = k.sLast; conf = Math.round(blendInfo.hazard.survival*100); rationale = 'Dựa vào hazard: lịch sử cho thấy chuỗi có xu hướng tiếp diễn.';
+  } else if(patternScore >= 4 && topProb >= 0.55){
+    pick = top; conf = Math.round((topProb*0.7 + Math.min(1,patternScore/6)*0.3)*100); rationale = 'Mẫu cầu + blended hỗ trợ.';
+  } else if(Math.abs(bProb - pProb) >= 0.12 && ! (k.vol >= Math.max(5, Math.floor(k.n/4))) ){
+    pick = top; conf = Math.round(topProb*100); rationale = 'Chênh lệch đủ lớn và không quá biến động.';
+  } else {
+    pick = null; conf = 0; rationale = 'Không đủ bằng chứng mạnh — ưu tiên CHỜ/quan sát.';
+  }
+
+  // expert-style final advice (phân loại)
+  let advice = '';
+  if(pick === 'B') advice = `Chuyên gia khuyến nghị: BANKER — ${conf}% (lý do: ${rationale})`;
+  else if(pick === 'P') advice = `Chuyên gia khuyến nghị: PLAYER — ${conf}% (lý do: ${rationale})`;
+  else advice = 'Chuyên gia khuyến nghị: CHỜ / Quan sát thêm (không vào mạnh).';
+
+  return {
+    text: advice,
+    pick,
+    conf,
+    reasons,
+    blended,
+    patterns:pats,
+    metrics: blendInfo.weights,
+    hazard: blendInfo.hazard
+  };
+}
+
+// ---- UI render ----
+function buildBigRoad(seq, rows=ROWS, cols=COLS){
+  const grid = Array.from({length:rows}, ()=>Array(cols).fill(null));
+  const ties = {}; let c=0,r=0,last=null;
+  for(const x of seq){
+    if(x==='T'){ const key=`${r},${c}`; ties[key]=(ties[key]||0)+1; continue; }
+    if(!last){ last=x; r=0; }
+    else if(x===last){ if(r<rows-1 && grid[r+1][c]==null) r++; else { c++; r=0; } }
+    else { c++; r=0; last=x; }
+    if(c>=cols) break;
+    grid[r][c]=x;
+  }
+  return {grid,ties};
+}
+function renderBoard(){
+  const {grid,ties} = buildBigRoad(state.seq);
+  const el = document.getElementById('board'); el.innerHTML='';
+  for(let ri=0; ri<ROWS; ri++){
+    for(let ci=0; ci<COLS; ci++){
+      const cell = grid[ri][ci];
+      const d = document.createElement('div');
+      if(cell) d.className = 'dot ' + (cell==='B' ? 'b' : 'p'); else d.className='dot empty';
+      const key = `${ri},${ci}`;
+      if(ties[key]){ const t=document.createElement('div'); t.className='tie-mark'; t.textContent='•'.repeat(Math.min(3,ties[key])); d.appendChild(t); }
+      el.appendChild(d);
+    }
+  }
+}
+
+function render(){
+  renderBoard();
+  const hist = document.getElementById('history');
+  hist.textContent = state.seq.length ? state.seq.join(' • ') : 'Chưa có dữ liệu.';
+  const k = kpis(state.seq);
+  document.getElementById('count').textContent = `${k.n} ván`;
+  document.getElementById('streak').textContent = k.streak ? `Chuỗi: ${k.sLast} x${k.streak}` : 'Chuỗi: -';
+  document.getElementById('bRate').textContent = `${k.bRate}%`;
+  document.getElementById('pRate').textContent = `${k.pRate}%`;
+  document.getElementById('tieCount').textContent = `${k.t}`;
+  document.getElementById('vol').textContent = `${k.vol}`;
+
+  const expert = expertRead(state.seq);
+  const analysisEl = document.getElementById('analysis');
+  analysisEl.innerHTML = '';
+  // summary tags
+  const tagWrap = document.createElement('div');
+  tagWrap.style.marginBottom='8px';
+  if(expert.patterns.length){
+    expert.patterns.forEach(p=>{ const sp = document.createElement('span'); sp.className='tag'; sp.textContent = p.name; tagWrap.appendChild(sp); });
+  } else {
+    const sp = document.createElement('span'); sp.className='tag'; sp.textContent='No clear pattern'; tagWrap.appendChild(sp);
+  }
+  analysisEl.appendChild(tagWrap);
+
+  // narrative bullets
+  const ul = document.createElement('div'); ul.style.lineHeight='1.5';
+  expert.reasons.forEach(r=>{
+    const d = document.createElement('div'); d.textContent = '• ' + r; d.style.marginBottom='6px'; ul.appendChild(d);
+  });
+  analysisEl.appendChild(ul);
+
+  // detailed metrics
+  const metricsDiv = document.createElement('div'); metricsDiv.style.marginTop='10px'; metricsDiv.className='muted';
+  metricsDiv.innerHTML = `<div><strong>Weights (expert blend):</strong> m1:${Math.round(expert.metrics.w_m1*100)}% h:${Math.round(expert.metrics.w_h*100)}% prior:${Math.round(expert.metrics.w_prior*100)}% res:${Math.round(expert.metrics.w_res*100)}%</div>`;
+  analysisEl.appendChild(metricsDiv);
+
+  // reasons block
+  document.getElementById('reasons').textContent = expert.reasons.join('\n');
+
+  // decision box
+  const dec = document.getElementById('decision');
+  const decDet = document.getElementById('decisionDetail');
+  dec.textContent = expert.text;
+  dec.className = expert.pick ? 'decision good' : 'decision warn';
+  decDet.textContent = expert.conf ? `Độ tin cậy ≈ ${expert.conf}% — Pick: ${expert.pick}` : 'Độ tin cậy thấp / CHỜ';
+
+  // show blended & hazard
+  document.getElementById('p_b').textContent = `${Math.round(expert.blended.B*100)}%`;
+  document.getElementById('p_p').textContent = `${Math.round(expert.blended.P*100)}%`;
+  document.getElementById('p_t').textContent = `${Math.round(expert.blended.T*100)}%`;
+  document.getElementById('breakProb').textContent = expert.hazard.hazard !== null ? `${Math.round(expert.hazard.hazard*100)}%` : '-';
+}
+
+// ---- wire UI ----
+document.getElementById('bankerBtn').addEventListener('click', ()=>add('B'));
+document.getElementById('playerBtn').addEventListener('click', ()=>add('P'));
+document.getElementById('tieBtn').addEventListener('click', ()=>add('T'));
+document.getElementById('undoBtn').addEventListener('click', ()=>undo());
+document.getElementById('resetBtn').addEventListener('click', ()=>resetAll());
+document.getElementById('exportBtn').addEventListener('click', ()=>exportData());
+document.getElementById('pasteJsonBtn').addEventListener('click', ()=>importData());
+
+// initial render
+render();
+
+</script>
+</body>
+</html>
